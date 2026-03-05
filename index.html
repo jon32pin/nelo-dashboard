@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nelo CX · Incident Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:       #0F2044;
+  --navy-mid:   #1B3460;
+  --navy-light: #E8EDF5;
+  --bg:         #F7F8FA;
+  --bg-white:   #FFFFFF;
+  --coral:      #D94F3D;
+  --coral-bg:   #FDF1F0;
+  --gold:       #B8881A;
+  --gold-bg:    #FDF8EE;
+  --green:      #1E6E4E;
+  --green-bg:   #EDF7F3;
+  --blue:       #1A5FA8;
+  --blue-bg:    #EEF5FD;
+  --text:       #1A2236;
+  --text-mid:   #4A5568;
+  --text-light: #8A97A8;
+  --border:     #DDE3ED;
+  --border-dark:#B8C4D4;
+  --shadow:     0 1px 4px rgba(15,32,68,.07), 0 4px 16px rgba(15,32,68,.05);
+  --shadow-lg:  0 4px 24px rgba(15,32,68,.12);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOP BAR ──────────────────────────────────────── */
+.topbar {
+  background: var(--navy);
+  padding: 0 40px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(15,32,68,.25);
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.topbar-logo {
+  width: 32px; height: 32px;
+  background: #FFFFFF18;
+  border: 1px solid #FFFFFF30;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 700;
+  color: #fff;
+}
+.topbar-brand { color: #fff; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.topbar-sep { width: 1px; height: 20px; background: #FFFFFF30; }
+.topbar-title { color: #A8BCCF; font-size: 13px; font-weight: 400; }
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+.topbar-meta { color: #A8BCCF; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+.status-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: #D94F3D22;
+  border: 1px solid #D94F3D55;
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  background: var(--coral);
+  border-radius: 50%;
+  animation: blink 2s infinite;
+}
+.status-text { color: #F4A39A; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+
+/* ── BODY LAYOUT ──────────────────────────────────── */
+.layout { display: flex; flex: 1; }
+
+/* ── SIDEBAR ──────────────────────────────────────── */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-white);
+  border-right: 1px solid var(--border);
+  padding: 32px 0;
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow-y: auto;
+}
+.sidebar-section { padding: 0 20px; margin-bottom: 32px; }
+.sidebar-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 10px;
+  padding-left: 12px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-mid);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all .18s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.nav-item:hover { background: var(--navy-light); color: var(--navy); }
+.nav-item.active {
+  background: var(--navy-light);
+  color: var(--navy);
+  font-weight: 600;
+  border-color: var(--border);
+}
+.nav-item.active .nav-dot { background: var(--navy); }
+.nav-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border-dark);
+  flex-shrink: 0;
+  transition: background .18s;
+}
+.nav-badge {
+  margin-left: auto;
+  background: var(--coral);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 20px 24px; }
+.sidebar-analyst {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  background: var(--bg-white);
+}
+.analyst-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.analyst-role { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+
+/* ── MAIN ─────────────────────────────────────────── */
+.main { flex: 1; padding: 36px 40px 60px; min-width: 0; }
+
+/* ── PAGE HEADER ──────────────────────────────────── */
+.page-header { margin-bottom: 32px; }
+.page-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 8px;
+}
+.page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.page-title em { color: var(--coral); font-style: normal; }
+.page-sub { font-size: 13px; color: var(--text-mid); margin-top: 8px; line-height: 1.6; }
+
+/* ── VIEWS ────────────────────────────────────────── */
+.view { display: none; animation: fadeIn .3s ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── GRIDS ────────────────────────────────────────── */
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.g21 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 24px; }
+
+/* ── CARD ─────────────────────────────────────────── */
+.card {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px; height: 14px;
+  background: var(--navy);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── KPI CARDS ────────────────────────────────────── */
+.kpi {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+.kpi.visible { opacity:1; transform:translateY(0); }
+.kpi::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+}
+.kpi.teal::after  { background: var(--navy); }
+.kpi.red::after   { background: var(--coral); }
+.kpi.gold::after  { background: var(--gold); }
+.kpi.green::after { background: var(--green); }
+
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--text-light); letter-spacing: .04em; margin-bottom: 10px; }
+.kpi-val   { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.kpi.teal  .kpi-val { color: var(--navy); }
+.kpi.red   .kpi-val { color: var(--coral); }
+.kpi.gold  .kpi-val { color: var(--gold); }
+.kpi.green .kpi-val { color: var(--green); }
+.kpi-sub   { font-size: 11px; color: var(--text-light); margin-top: 6px; }
+
+/* ── ALERT BOXES ──────────────────────────────────── */
+.alert {
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-left: 4px solid;
+}
+.alert.red   { background: var(--coral-bg); border-color: var(--coral); }
+.alert.gold  { background: var(--gold-bg);  border-color: var(--gold); }
+.alert.green { background: var(--green-bg); border-color: var(--green); }
+.alert.blue  { background: var(--blue-bg);  border-color: var(--blue); }
+.alert-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+.alert.red   .alert-title { color: var(--coral); }
+.alert.gold  .alert-title { color: var(--gold); }
+.alert.green .alert-title { color: var(--green); }
+.alert.blue  .alert-title { color: var(--blue); }
+.alert-body { font-size: 13px; color: var(--text); line-height: 1.65; }
+
+/* ── PROGRESS BARS ────────────────────────────────── */
+.prog { margin-bottom: 14px; }
+.prog-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-mid); margin-bottom: 5px; }
+.prog-val { font-weight: 600; }
+.prog-track { height: 8px; background: var(--navy-light); border-radius: 4px; overflow: hidden; }
+.prog-fill  { height: 100%; border-radius: 4px; transition: width 1.2s cubic-bezier(.22,1,.36,1); }
+
+/* ── TABLE ────────────────────────────────────────── */
+.tbl-wrap  { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); }
+.tbl       { width: 100%; border-collapse: collapse; }
+.tbl thead { background: var(--navy); }
+.tbl th    { padding: 11px 16px; color: #A8BCCF; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; text-align: left; }
+.tbl td    { padding: 11px 16px; font-size: 12px; border-bottom: 1px solid var(--border); background: var(--bg-white); }
+.tbl tbody tr:last-child td { border-bottom: none; }
+.tbl tbody tr:hover td { background: #F0F4FA; }
+
+.tag  { border-radius: 5px; padding: 2px 9px; font-size: 10px; font-weight: 600; letter-spacing: .02em; }
+.tag-red   { background: var(--coral-bg); color: var(--coral); border: 1px solid #F4A39A66; }
+.tag-blue  { background: var(--blue-bg);  color: var(--blue);  border: 1px solid #9EC4F066; }
+.tag-gold  { background: var(--gold-bg);  color: var(--gold);  border: 1px solid #D4B56688; }
+.tag-green { background: var(--green-bg); color: var(--green); border: 1px solid #7EC9A888; }
+.tag-null  { background: var(--coral-bg); color: var(--coral); border: 1px solid #D94F3D44; font-family: 'IBM Plex Mono', monospace; }
+
+/* ── FILTER PILLS ─────────────────────────────────── */
+.filter-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.pill {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px; font-weight: 500;
+  font-family: 'IBM Plex Sans', sans-serif;
+  cursor: pointer;
+  transition: all .18s;
+}
+.pill:hover { border-color: var(--navy); color: var(--navy); }
+.pill.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+/* ── ACTION CARDS ─────────────────────────────────── */
+.action-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 24px; }
+.ac {
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all .2s;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.ac::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.ac:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.ac.done { background: var(--green-bg); border-color: #7EC9A8; }
+.ac.done .ac-title { color: var(--green); }
+.ac.done .ac-badge { background: var(--green-bg); color: var(--green); border-color: #7EC9A8; }
+.ac-top   { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.ac-icon  { font-size: 20px; }
+.ac-step  { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-light); }
+.ac-badge { border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .05em; border: 1px solid; }
+.ac-badge.now  { background: var(--coral-bg); color: var(--coral); border-color: #F4A39A66; }
+.ac-badge.hoy  { background: var(--gold-bg);  color: var(--gold);  border-color: #D4B56688; }
+.ac-title { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 5px; }
+.ac-desc  { font-size: 11px; color: var(--text-mid); line-height: 1.55; }
+
+/* ── METRIC ROW TABLE ─────────────────────────────── */
+.metric-tbl { width: 100%; border-collapse: collapse; }
+.metric-tbl td { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.metric-tbl tr:last-child td { border-bottom: none; }
+.metric-label { color: var(--text-mid); }
+.metric-val   { color: var(--navy); font-weight: 600; text-align: right; }
+.metric-val.red  { color: var(--coral); }
+.metric-val.gold { color: var(--gold); }
+
+/* ── CHART WRAP ──────────────────────────────────── */
+.ch { position: relative; height: 200px; }
+
+/* ── CARRIER CHIPS ────────────────────────────────── */
+.carrier-chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.carrier-chip {
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* ── HYPOTHESIS ───────────────────────────────────── */
+.hypo {
+  background: linear-gradient(135deg, #EDF7F3 0%, #F0F5FF 100%);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--green);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+.hypo-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+.hypo-body  { font-size: 13px; line-height: 1.7; color: var(--text); }
+.hypo-body strong { color: var(--navy); font-weight: 600; }
+.hypo-body mark   { background: none; color: var(--coral); font-weight: 600; }
+
+/* ── PREVENT LIST ─────────────────────────────────── */
+.prev-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.prev-item:last-child { border-bottom: none; }
+.prev-num { width: 22px; height: 22px; border-radius: 50%; background: var(--navy-light); color: var(--navy); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.prev-text { font-size: 12px; color: var(--text); line-height: 1.6; }
+
+/* ── CLOSE CRITERIA ───────────────────────────────── */
+.close-item { border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; }
+.close-label { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+.close-body  { font-size: 12px; color: var(--text); line-height: 1.5; }
+code { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--navy-light); color: var(--navy); padding: 1px 5px; border-radius: 3px; }
+
+/* ── SAMPLE ROWS ──────────────────────────────────── */
+.sample { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 6px; background: var(--bg); margin-bottom: 6px; }
+.sample-id  { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-mid); }
+.sample-val { font-size: 12px; font-weight: 600; color: var(--coral); }
+
+/* ── INSTRUCTION HINT ─────────────────────────────── */
+.hint { font-size: 11px; color: var(--text-light); margin-bottom: 14px; }
+
+/* ── ANIMATIONS ──────────────────────────────────── */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* ── SCROLLBAR ───────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">N</div>
+    <span class="topbar-brand">Nelo</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-title">CX Operations · Incident Analysis</span>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-meta">Nov 7–14, 2025</span>
+    <div class="status-chip">
+      <div class="status-dot"></div>
+      <span class="status-text">Incidente activo</span>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Vistas</div>
+      <div class="nav-item active" data-tab="resumen">
+        <div class="nav-dot"></div>Resumen Ejecutivo
+        <span class="nav-badge">!</span>
+      </div>
+      <div class="nav-item" data-tab="analisis">
+        <div class="nav-dot"></div>Análisis de datos
+      </div>
+      <div class="nav-item" data-tab="ordenes">
+        <div class="nav-dot"></div>Órdenes afectadas
+      </div>
+      <div class="nav-item" data-tab="accion">
+        <div class="nav-dot"></div>Plan de acción
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Métricas clave</div>
+      <table class="metric-tbl">
+        <tr><td class="metric-label">Tickets totales</td><td class="metric-val">150</td></tr>
+        <tr><td class="metric-label">NULL POD</td><td class="metric-val red">26</td></tr>
+        <tr><td class="metric-label">CSAT mín.</td><td class="metric-val red">1.6</td></tr>
+        <tr><td class="metric-label">Pico refund</td><td class="metric-val gold">$5,943</td></tr>
+        <tr><td class="metric-label">Merchant</td><td class="metric-val">GadgetGo</td></tr>
+      </table>
+    </div>
+
+    <div class="sidebar-analyst">
+      <div class="analyst-name">Aylin Nuñez</div>
+      <div class="analyst-role">CX Agent · Nelo</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- RESUMEN EJECUTIVO                               -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="view active" id="view-resumen">
+      <div class="page-header">
+        <div class="page-eyebrow">Caso Práctico · CX Agent</div>
+        <div class="page-title">Entregas <em>No Reconocidas</em></div>
+        <div class="page-sub">Análisis del incremento de tickets, caída de CSAT y spike de reembolsos — semana del 7 al 14 de noviembre de 2025.</div>
+      </div>
+
+      <div class="g4">
+        <div class="kpi teal" data-target="150">
+          <div class="kpi-label">Órdenes analizadas</div>
+          <div class="kpi-val" data-counter>0</div>
+          <div class="kpi-sub">150 tickets asociados</div>
+        </div>
+        <div class="kpi red" data-target="26">
+          <div class="kpi-label">Afectadas · NULL POD</div>
+          <div class="kpi-val" data-counter>0</div>
+          <div class="kpi-sub">100% merchant GadgetGo</div>
+        </div>
+        <div class="kpi red" data-target="16" data-decimal>
+          <div class="kpi-label">CSAT mínimo registrado</div>
+          <div class="kpi-val" data-counter>0</div>
+          <div class="kpi-sub">vs 4.7 semanas previas</div>
+        </div>
+        <div class="kpi gold" data-target="5943" data-prefix="$">
+          <div class="kpi-label">Pico reembolsos</div>
+          <div class="kpi-val" data-counter>$0</div>
+          <div class="kpi-sub">MXN — 12 nov 2025</div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Origen del incidente</div>
+          <div class="alert red" style="margin-bottom:16px">
+            <div class="alert-title">Merchant responsable</div>
+            <div class="alert-body" style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;color:var(--coral)">GadgetGo</div>
+            <div class="alert-body" style="margin-top:4px;font-size:12px">Único merchant con POD nulo · 43% de sus entregas afectadas</div>
+          </div>
+          <div style="font-size:12px;color:var(--text-mid);margin-bottom:10px;">Carriers involucrados</div>
+          <div class="carrier-chip-row">
+            <span class="carrier-chip" style="background:var(--blue-bg);color:var(--blue);border-color:#9EC4F0">DHL · 8 casos</span>
+            <span class="carrier-chip" style="background:var(--gold-bg);color:var(--gold);border-color:#D4B566">Envia · 8 casos</span>
+            <span class="carrier-chip" style="background:var(--coral-bg);color:var(--coral);border-color:#F4A39A">99min · 7 casos</span>
+            <span class="carrier-chip" style="background:var(--green-bg);color:var(--green);border-color:#7EC9A8">Estafeta · 3 casos</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-light);margin-top:12px;font-style:italic;">Todos sus carriers afectados → descarta falla logística aislada</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Comparativa de merchants</div>
+          <div class="ch"><canvas id="chartSummary"></canvas></div>
+        </div>
+      </div>
+
+      <div class="hypo">
+        <div class="hypo-label">Hipótesis confirmada por los datos</div>
+        <div class="hypo-body">
+          GadgetGo tiene un <strong>fallo en su integración de webhooks</strong> con Nelo. El sistema está marcando órdenes como
+          <mark>'Delivered'</mark> sin generar prueba de entrega (POD), y en varios casos <strong>antes de su fecha estimada de entrega</strong> (21–27 días de anticipación).
+          El problema es <strong>sistémico</strong>, no logístico: ningún otro merchant presenta casos similares.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ANÁLISIS                                        -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="view" id="view-analisis">
+      <div class="page-header">
+        <div class="page-eyebrow">Análisis de datos</div>
+        <div class="page-title">Patrones e <em>Inconsistencias</em></div>
+        <div class="page-sub">Exploración del dataset de órdenes y tickets para identificar la causa raíz del incremento.</div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">NULL POD por merchant (órdenes entregadas)</div>
+          <div class="ch"><canvas id="chartBar"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">% NULL POD sobre entregas confirmadas</div>
+          <div style="margin-top:4px">
+            <div class="prog">
+              <div class="prog-row"><span>GadgetGo</span><span class="prog-val" style="color:var(--coral)">43%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="background:linear-gradient(90deg,var(--coral),var(--gold));width:0" data-w="43"></div></div>
+            </div>
+            <div class="prog">
+              <div class="prog-row"><span>TrendHub</span><span class="prog-val" style="color:var(--green)">0%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="background:var(--navy-light);width:0" data-w="1"></div></div>
+            </div>
+            <div class="prog">
+              <div class="prog-row"><span>Petify</span><span class="prog-val" style="color:var(--green)">0%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="background:var(--navy-light);width:0" data-w="1"></div></div>
+            </div>
+            <div class="prog">
+              <div class="prog-row"><span>SmartZone</span><span class="prog-val" style="color:var(--green)">0%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="background:var(--navy-light);width:0" data-w="1"></div></div>
+            </div>
+            <div class="prog">
+              <div class="prog-row"><span>CasaNova</span><span class="prog-val" style="color:var(--green)">0%</span></div>
+              <div class="prog-track"><div class="prog-fill" style="background:var(--navy-light);width:0" data-w="1"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Distribución NULL POD por carrier (GadgetGo)</div>
+          <div class="ch"><canvas id="chartDoughnut"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Dato inconsistente crítico</div>
+          <div class="alert gold">
+            <div class="alert-title">⚠ Físicamente imposible</div>
+            <div class="alert-body">Órdenes marcadas como <strong>Delivered</strong> con fecha estimada de entrega <strong>21–27 días en el futuro</strong>. Evidencia de bug sistémico, no error humano.</div>
+          </div>
+          <div class="sample"><span class="sample-id">o1004 · DHL</span><span class="sample-val">+27 días adelantado</span></div>
+          <div class="sample"><span class="sample-id">o1025 · Envia</span><span class="sample-val">+25 días adelantado</span></div>
+          <div class="sample"><span class="sample-id">o1032 · 99min</span><span class="sample-val">+25 días adelantado</span></div>
+          <div class="sample"><span class="sample-id">o1043 · DHL</span><span class="sample-val">+22 días adelantado</span></div>
+          <div style="margin-top:14px;padding:10px 14px;background:var(--blue-bg);border-radius:7px;font-size:12px;color:var(--blue);border:1px solid #9EC4F066">
+            → Descarta falla logística. Confirma bug en integración GadgetGo → Nelo.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ÓRDENES                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="view" id="view-ordenes">
+      <div class="page-header">
+        <div class="page-eyebrow">Detalle de casos</div>
+        <div class="page-title">Órdenes <em>Afectadas</em></div>
+        <div class="page-sub">26 órdenes con status Delivered y POD nulo — muestra de 12. Filtrar por carrier para analizar la distribución.</div>
+      </div>
+
+      <div class="filter-row" id="f-row">
+        <button class="pill active" data-c="Todos">Todos (26)</button>
+        <button class="pill" data-c="DHL">DHL · 8</button>
+        <button class="pill" data-c="Envia">Envia · 8</button>
+        <button class="pill" data-c="99min">99min · 7</button>
+        <button class="pill" data-c="Estafeta">Estafeta · 3</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Order ID</th><th>Merchant</th><th>Carrier</th>
+              <th>Fecha orden</th><th>Est. entrega</th><th>Δ días</th><th>POD</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+
+      <div class="alert blue" style="margin-top:16px;margin-bottom:0">
+        <div class="alert-title">Observación</div>
+        <div class="alert-body">El patrón es consistente en todos los carriers de GadgetGo. Si fuera una falla de un carrier específico, no se vería en DHL, Envia, 99min y Estafeta simultáneamente.</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- PLAN DE ACCIÓN                                  -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="view" id="view-accion">
+      <div class="page-header">
+        <div class="page-eyebrow">Propuesta de acción</div>
+        <div class="page-title">Respuesta <em>al Incidente</em></div>
+        <div class="page-sub">Acciones inmediatas si estuviera atendiendo en turno, más propuestas de solución estructural.</div>
+      </div>
+
+      <div class="hint">💡 Haz clic en cada acción para marcarla como completada durante la presentación.</div>
+
+      <div class="action-grid" id="action-grid"></div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Acciones preventivas — causa raíz</div>
+          <div class="prev-item">
+            <div class="prev-num">1</div>
+            <div class="prev-text">Auditar el sistema de webhooks de GadgetGo: identificar qué condición activa el evento <code>order_delivered</code> y corregirlo para requerir POD válido.</div>
+          </div>
+          <div class="prev-item">
+            <div class="prev-num">2</div>
+            <div class="prev-text">Regla en la integración Nelo: si una orden llega como <code>Delivered</code> sin POD y antes de su fecha estimada → marcar como <code>pending_verification</code> automáticamente.</div>
+          </div>
+          <div class="prev-item">
+            <div class="prev-num">3</div>
+            <div class="prev-text">Monitor de umbral: si un merchant supera 10% de entregas sin POD en 24 horas, disparar alerta a Marketplace Ops y team lead de CX antes de que el volumen escale.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Criterio de cierre del ticket</div>
+          <div class="close-item" style="background:var(--green-bg);border:1px solid #7EC9A8;margin-bottom:10px">
+            <div class="close-label" style="color:var(--green)">✓ Falla logística confirmada</div>
+            <div class="close-body">Aprobar reembolso (merchant funded). Etiquetar: <code>refund_gadgetgo_incident</code></div>
+          </div>
+          <div class="close-item" style="background:var(--blue-bg);border:1px solid #9EC4F0">
+            <div class="close-label" style="color:var(--blue)">ℹ Entrega válida confirmada</div>
+            <div class="close-body">Compartir evidencia al usuario. Reactivar préstamo. Etiquetar: <code>gadgetgo_delivered_confirmed</code></div>
+          </div>
+          <div class="alert gold" style="margin-bottom:0;margin-top:12px">
+            <div class="alert-title">Regla general</div>
+            <div class="alert-body">No cerrar el ticket hasta recibir confirmación oficial de Marketplace Ops o del merchant.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /layout -->
+
+<script>
+/* ── DATA ───────────────────────────────────────── */
+const ORDERS = [
+  {id:"o1000",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-12",est:"2025-12-03",delta:21},
+  {id:"o1001",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-12",est:"2025-12-05",delta:23},
+  {id:"o1004",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-08",est:"2025-12-05",delta:27},
+  {id:"o1025",merchant:"GadgetGo",carrier:"Envia",   date:"2025-11-08",est:"2025-12-03",delta:25},
+  {id:"o1030",merchant:"GadgetGo",carrier:"Estafeta",date:"2025-11-12",est:"2025-12-04",delta:22},
+  {id:"o1032",merchant:"GadgetGo",carrier:"99min",   date:"2025-11-09",est:"2025-12-04",delta:25},
+  {id:"o1038",merchant:"GadgetGo",carrier:"Envia",   date:"2025-11-11",est:"2025-12-03",delta:22},
+  {id:"o1043",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-13",est:"2025-12-05",delta:22},
+  {id:"o1046",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-13",est:"2025-12-08",delta:25},
+  {id:"o1050",merchant:"GadgetGo",carrier:"99min",   date:"2025-11-08",est:"2025-12-04",delta:26},
+  {id:"o1055",merchant:"GadgetGo",carrier:"Envia",   date:"2025-11-10",est:"2025-12-06",delta:26},
+  {id:"o1058",merchant:"GadgetGo",carrier:"DHL",     date:"2025-11-09",est:"2025-12-04",delta:25},
+];
+
+const CARRIER_TAG = {
+  DHL:      "tag-blue",
+  Envia:    "tag-gold",
+  "99min":  "tag-red",
+  Estafeta: "tag-green",
+};
+
+const ACTIONS = [
+  {step:"01",icon:"⏸",title:"Pausar préstamo",    desc:"Antes de responder. Evita cargos injustos mientras se investiga.",      urgency:"AHORA",cls:"now",col:"var(--coral)"},
+  {step:"02",icon:"💬",title:"Enviar macro",        desc:"Respuesta empática con confirmación de investigación activa.",           urgency:"AHORA",cls:"now",col:"var(--coral)"},
+  {step:"03",icon:"🏷", title:"Tag del incidente",  desc:"Aplicar gadgetgo_status_incident para trazabilidad centralizada.",      urgency:"AHORA",cls:"now",col:"var(--coral)"},
+  {step:"04",icon:"📤",title:"Escalar Mktp. Ops",  desc:"Formato SOP con order_id, carrier, fecha, POD = NULL.",                 urgency:"HOY",  cls:"hoy",col:"var(--gold)"},
+  {step:"05",icon:"📋",title:"Ticket a 99min",      desc:"Para órdenes con ese carrier. SLA: 7 días hábiles.",                   urgency:"HOY",  cls:"hoy",col:"var(--gold)"},
+  {step:"06",icon:"📣",title:"Avisar al equipo",    desc:"Slack/chat: incidente activo, pausar sin esperar aprobación individual.",urgency:"HOY",  cls:"hoy",col:"var(--gold)"},
+];
+
+/* ── NAV ─────────────────────────────────────────── */
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    item.classList.add('active');
+    const id = 'view-' + item.dataset.tab;
+    document.getElementById(id).classList.add('active');
+    if (item.dataset.tab === 'analisis') initAnalysis();
+    if (item.dataset.tab === 'ordenes')  renderTable('Todos');
+    if (item.dataset.tab === 'accion')   renderActions();
+  });
+});
+
+/* ── KPI COUNTERS ────────────────────────────────── */
+function countUp(el, target, dec, pre) {
+  let start = null;
+  const run = ts => {
+    if (!start) start = ts;
+    const p = Math.min((ts-start)/1200,1);
+    const e = 1-Math.pow(1-p,3);
+    const v = e*target;
+    el.textContent = (pre||'') + (dec ? v.toFixed(1) : Math.floor(v).toLocaleString());
+    if (p<1) requestAnimationFrame(run);
+  };
+  requestAnimationFrame(run);
+}
+
+document.querySelectorAll('.kpi').forEach((k,i) => {
+  setTimeout(() => {
+    k.classList.add('visible');
+    const el  = k.querySelector('[data-counter]');
+    const tgt = +k.dataset.target;
+    const dec = k.hasAttribute('data-decimal');
+    const pre = k.dataset.prefix||'';
+    countUp(el, tgt, dec, pre);
+  }, i*120);
+});
+
+/* ── CHARTS ──────────────────────────────────────── */
+let chartsDone = false;
+function initAnalysis() {
+  if (chartsDone) return;
+  chartsDone = true;
+
+  // Animate progress bars
+  setTimeout(() => {
+    document.querySelectorAll('.prog-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  }, 150);
+
+  const baseOpts = {
+    responsive:true, maintainAspectRatio:false,
+    animation:{ duration:900, easing:'easeOutQuart' },
+    plugins:{
+      legend:{display:false},
+      tooltip:{ backgroundColor:'#fff', borderColor:'#DDE3ED', borderWidth:1, titleColor:'#4A5568', bodyColor:'#1A2236', padding:10, boxShadow:'0 4px 12px rgba(0,0,0,.1)' }
+    }
+  };
+
+  // Bar chart
+  new Chart(document.getElementById('chartBar'), {
+    type:'bar',
+    data:{
+      labels:['GadgetGo','TrendHub','Petify','SmartZone','CasaNova'],
+      datasets:[{
+        label:'NULL POD', data:[26,0,0,0,0],
+        backgroundColor: ctx => ctx.dataIndex===0 ? '#D94F3D' : '#E8EDF5',
+        borderRadius:5, borderSkipped:false,
+      }]
+    },
+    options:{
+      ...baseOpts,
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#8A97A8',font:{size:11,family:'IBM Plex Sans'}}},
+        y:{grid:{color:'#F0F4FA'},ticks:{color:'#8A97A8',font:{size:11}}}
+      }
+    }
+  });
+
+  // Doughnut
+  new Chart(document.getElementById('chartDoughnut'), {
+    type:'doughnut',
+    data:{
+      labels:['DHL','Envia','99min','Estafeta'],
+      datasets:[{
+        data:[8,8,7,3],
+        backgroundColor:['#1A5FA8','#B8881A','#D94F3D','#1E6E4E'],
+        borderColor:'#fff', borderWidth:3, hoverOffset:6
+      }]
+    },
+    options:{
+      ...baseOpts, cutout:'62%',
+      plugins:{
+        ...baseOpts.plugins,
+        legend:{display:true, position:'bottom', labels:{color:'#4A5568',font:{size:11},padding:14,boxWidth:10,usePointStyle:true}}
+      }
+    }
+  });
+}
+
+// Summary chart (resumen view)
+window.addEventListener('DOMContentLoaded', () => {
+  new Chart(document.getElementById('chartSummary'), {
+    type:'bar',
+    data:{
+      labels:['GadgetGo','TrendHub','Petify','SmartZone','CasaNova'],
+      datasets:[
+        { label:'Entregadas', data:[61,16,10,5,11], backgroundColor:'#E8EDF5', borderRadius:4, borderSkipped:false },
+        { label:'NULL POD',   data:[26,0,0,0,0],    backgroundColor:'#D94F3D', borderRadius:4, borderSkipped:false },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{ duration:900 },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#8A97A8',font:{size:11}}},
+        y:{grid:{color:'#F0F4FA'},ticks:{color:'#8A97A8',font:{size:11}}}
+      },
+      plugins:{
+        legend:{ position:'bottom', labels:{color:'#4A5568',font:{size:11},padding:12,boxWidth:10,usePointStyle:true} },
+        tooltip:{ backgroundColor:'#fff', borderColor:'#DDE3ED', borderWidth:1, titleColor:'#4A5568', bodyColor:'#1A2236', padding:10 }
+      }
+    }
+  });
+});
+
+/* ── TABLE ───────────────────────────────────────── */
+function renderTable(f) {
+  const rows = f==='Todos' ? ORDERS : ORDERS.filter(o=>o.carrier===f);
+  document.getElementById('tbl-body').innerHTML = rows.map(o=>`
+    <tr>
+      <td style="font-family:'IBM Plex Mono',monospace;color:var(--navy);font-size:12px">${o.id}</td>
+      <td>${o.merchant}</td>
+      <td><span class="tag ${CARRIER_TAG[o.carrier]}">${o.carrier}</span></td>
+      <td style="color:var(--text-mid);font-family:'IBM Plex Mono',monospace;font-size:12px">${o.date}</td>
+      <td style="color:var(--text-mid);font-family:'IBM Plex Mono',monospace;font-size:12px">${o.est}</td>
+      <td style="color:var(--coral);font-weight:600;font-size:12px">+${o.delta}d</td>
+      <td><span class="tag tag-null">NULL</span></td>
+    </tr>`).join('');
+}
+
+document.getElementById('f-row').addEventListener('click', e=>{
+  const p = e.target.closest('.pill'); if(!p) return;
+  document.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));
+  p.classList.add('active');
+  renderTable(p.dataset.c);
+});
+
+/* ── ACTIONS ─────────────────────────────────────── */
+const done = {};
+function renderActions() {
+  const g = document.getElementById('action-grid');
+  if (g.dataset.ok) return;
+  g.dataset.ok = '1';
+  g.innerHTML = ACTIONS.map((a,i)=>`
+    <div class="ac" data-i="${i}" style="border-left-color:${a.col}">
+      <div class="ac-top">
+        <div class="ac-icon-row" style="display:flex;align-items:center;gap:8px">
+          <span class="ac-icon">${a.icon}</span>
+          <span class="ac-step">${a.step}</span>
+        </div>
+        <span class="ac-badge ${a.cls}" id="b${i}">${a.urgency}</span>
+      </div>
+      <div class="ac-title" id="t${i}">${a.title}</div>
+      <div class="ac-desc">${a.desc}</div>
+    </div>`).join('');
+
+  g.querySelectorAll('.ac').forEach(c=>{
+    c.addEventListener('click',()=>{
+      const i = +c.dataset.i;
+      done[i]=!done[i];
+      c.classList.toggle('done',done[i]);
+      const b=document.getElementById('b'+i);
+      if (done[i]) { b.textContent='✓ Completado'; b.className='ac-badge'; b.style.cssText='background:var(--green-bg);color:var(--green);border:1px solid #7EC9A8'; }
+      else { b.textContent=ACTIONS[i].urgency; b.className='ac-badge '+ACTIONS[i].cls; b.style.cssText=''; }
+    });
+  });
+}
+</script>
+</body>
+</html>
